@@ -16,7 +16,7 @@ pnpm-debug.log*
 # os / editor
 .DS_Store
 .idea
-CLAUDE.md
+.gitignore
 .vscode/*
 !.vscode/extensions.json
 *.suo
