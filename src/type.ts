@@ -80,6 +80,16 @@ export type OptionalOptions = {
    */
   setOssPath?: SetOssPath
   /**
+   * 改写资源引用的 querystring（**注意：`query` 入参与返回值都包含 `?`**）。
+   *
+   * - `path`：原始资源路径（CDN 替换前，如 `/assets/logo.png`），用于识别资源；
+   * - `query`：原 querystring，带前导 `?`（如 `?v=1`）；无查询串时为 `''`；
+   * - 返回值：作为新的 querystring 拼到 CDN 地址之后，返回 `''` 表示去掉查询串。
+   *
+   * 不传时保持原 querystring 不变。
+   */
+  rewriteQueryString?: (path: string, query: string) => string
+  /**
    * 是否覆盖 OSS 上的同名文件。默认 `true`。
    */
   overwrite?: boolean
