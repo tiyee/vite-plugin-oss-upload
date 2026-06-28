@@ -226,6 +226,82 @@ describe('assetUploaderPlugin', () => {
     expect(js).toContain('https://cdn.example.com/static/assets/logo.png')
   })
 
+  it('未配置 rewriteQueryString 时原样保留 querystring', async () => {
+    write('dist/assets/logo.png', 'png')
+    write('dist/index.js', 'var u="/assets/logo.png?v=1";')
+
+    const plugin = assetUploaderPlugin({
+      ...baseOpts,
+      cdnHost: 'https://cdn.example.com',
+      dist: '/static',
+    })
+    await runPlugin(plugin, 'dist', ['writeBundle'])
+
+    const js = fs.readFileSync(path.join(tmpRoot, 'dist/index.js'), 'utf-8')
+    expect(js).toContain('https://cdn.example.com/static/assets/logo.png?v=1')
+  })
+
+  it('rewriteQueryString 可改写 querystring（入参与返回值均带 ?）', async () => {
+    write('dist/assets/logo.png', 'png')
+    write('dist/index.js', 'var u="/assets/logo.png?v=1";')
+
+    const plugin = assetUploaderPlugin({
+      ...baseOpts,
+      cdnHost: 'https://cdn.example.com',
+      dist: '/static',
+      rewriteQueryString: (p, query) => {
+        // 入参 path 为 CDN 替换前的原始资源路径
+        expect(p).toBe('/assets/logo.png')
+        // 入参 query 带前导 `?`
+        expect(query).toBe('?v=1')
+        // 返回值带前导 `?`
+        return '?v=2'
+      },
+    })
+    await runPlugin(plugin, 'dist', ['writeBundle'])
+
+    const js = fs.readFileSync(path.join(tmpRoot, 'dist/index.js'), 'utf-8')
+    expect(js).toContain('https://cdn.example.com/static/assets/logo.png?v=2')
+    expect(js).not.toContain('?v=1')
+  })
+
+  it('rewriteQueryString 无原查询串时入参 query 为空串，返回空串可去掉查询串', async () => {
+    write('dist/assets/logo.png', 'png')
+    write('dist/index.js', 'var u="/assets/logo.png";')
+
+    const plugin = assetUploaderPlugin({
+      ...baseOpts,
+      cdnHost: 'https://cdn.example.com',
+      dist: '/static',
+      rewriteQueryString: (p, query) => {
+        expect(p).toBe('/assets/logo.png')
+        expect(query).toBe('')
+        return ''
+      },
+    })
+    await runPlugin(plugin, 'dist', ['writeBundle'])
+
+    const js = fs.readFileSync(path.join(tmpRoot, 'dist/index.js'), 'utf-8')
+    expect(js).toContain('https://cdn.example.com/static/assets/logo.png')
+    expect(js).not.toContain('?')
+  })
+
+  it('rewriteQueryString 返回值不带 ? 时会被自动补上', async () => {
+    write('dist/assets/logo.png', 'png')
+    write('dist/index.js', 'var u="/assets/logo.png";')
+
+    const plugin = assetUploaderPlugin({
+      ...baseOpts,
+      cdnHost: 'https://cdn.example.com',
+      dist: '/static',
+      rewriteQueryString: () => 'cache=bust',
+    })
+    await runPlugin(plugin, 'dist', ['writeBundle'])
+
+    const js = fs.readFileSync(path.join(tmpRoot, 'dist/index.js'), 'utf-8')
+    expect(js).toContain('https://cdn.example.com/static/assets/logo.png?cache=bust')
+  })
+
   it('configResolved：未指定 endpoint/secure 且探测到内网时，用内网 endpoint + HTTP 重建 OSS', async () => {
     setIsInternal(true)
     const plugin = assetUploaderPlugin({

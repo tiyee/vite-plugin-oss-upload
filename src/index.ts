@@ -120,6 +120,7 @@ const assetUploaderPlugin = (rawOptions: PluginOptions): Plugin => {
   const setVersion = options.setVersion
   const assetsDirectory = options.assetsDirectory ?? defaultOption.assetsDirectory
   const outputDirectory = options.outputDirectory ?? defaultOption.outputDirectory
+  const rewriteQueryString = options.rewriteQueryString
 
   const fileSuffix = options.fileSuffix ?? [...DEFAULT_FILE_SUFFIX]
   // 仅在用户未自定义 setOssPath 时启用默认实现
@@ -247,16 +248,33 @@ const assetUploaderPlugin = (rawOptions: PluginOptions): Plugin => {
     const suffixPattern = fileSuffix.map(escapeRegExp).join('|')
     // $1 = 前导分隔符（引号/等号/括号/空白/行首），原样保留
     // $2 = /assets/xxx.<ext>，被替换为 ${cdnBaseUrl}$2
+    // $3 = 后缀名（仅占位，不使用）
+    // $4 = 可选的原 querystring（带前导 `?`，可能包含资源 hash 等），无则 undefined
     const regExp = new RegExp(
-      `(^|[\\s'"=()])((?:\\/${dirPattern})\\/[\\w.\\-/]+\\.(${suffixPattern}))(?![\\w])`,
+      `(^|[\\s'"=()])((?:\\/${dirPattern})\\/[\\w.\\-/]+\\.(${suffixPattern}))(\\?[^\\s'"<>)]*)?(?![\\w])`,
       'ig',
     )
+
+    // 统一签名：未配置 rewriteQueryString 时按原样保留 querystring；否则交给用户改写。
+    // 注意：入参与返回值的 query 都带前导 `?`，返回 `''` 表示去掉查询串。
+    const replaceFn = (
+      _m: string,
+      lead: string,
+      assetPath: string,
+      _ext: string,
+      rawQuery: string | undefined,
+    ): string => {
+      const query = rawQuery ?? ''
+      const nextQuery = rewriteQueryString ? rewriteQueryString(assetPath, query) : query
+      const querySuffix = nextQuery ? (nextQuery.startsWith('?') ? nextQuery : `?${nextQuery}`) : ''
+      return `${lead}${cdnBaseUrl}${assetPath}${querySuffix}`
+    }
 
     const fileList = await glob(`./${outputDirectory}/**/*.{js,css,html}`)
     await Promise.all(
       fileList.map(async (filePath) => {
         const content = await fsp.readFile(filePath, 'utf-8')
-        const next = content.replace(regExp, `$1${cdnBaseUrl}$2`)
+        const next = content.replace(regExp, replaceFn)
         if (next !== content) {
           await fsp.writeFile(filePath, next, 'utf-8')
         }
