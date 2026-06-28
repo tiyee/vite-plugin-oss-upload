@@ -52,6 +52,7 @@ pnpm add vite-plugin-oss-upload -D
 | `assetsDirectory` | 资源目录名，用于 CDN 路径替换 | `assets` |
 | `outputDirectory` | 打包输出目录 | `dist` |
 | `setOssPath` | 自定义 OSS 路径生成函数 | 以 `outputDirectory` 为基准的相对路径 |
+| `rewriteQueryString` | 改写资源引用的 querystring，签名 `(path, query) => string`。`path` 为 CDN 替换前的原始资源路径；`query` 入参与返回值**都包含 `?`**（如 `?v=1`），无查询串时为 `''`，返回 `''` 表示去掉查询串 | — |
 | `concurrency` | 并发上传数 | `5` |
 | `secure` | 是否使用 HTTPS（`true`）/ HTTP（`false`）。默认随 OSS 客户端自动判断 | — |
 
@@ -64,6 +65,39 @@ pnpm add vite-plugin-oss-upload -D
 
 > 该机制对 CI、无外网等环境安全：任何探测异常都静默回退，不抛错。
 > 若需完全跳过自动探测，显式设置 `endpoint` 或 `secure` 即可。
+
+### 改写资源引用的 querystring
+
+`rewriteQueryString` 允许你在 CDN 路径替换时，自定义资源引用后面的 querystring（例如统一打版本号、缓存破坏标识等）。
+
+```ts
+rewriteQueryString?: (path: string, query: string) => string
+```
+
+- `path`：CDN 替换**前**的原始资源路径，如 `/assets/logo.png`，仅用于识别资源；
+- `query`：原 querystring，**包含前导 `?`**（如 `?v=1`）；若原引用没有查询串则为 `''`；
+- **返回值**：作为新的 querystring 拼接到 CDN 地址之后，同样**以 `?` 开头**（返回 `?v=2` 或 `v=2` 均可，插件会自动补齐 `?`）；返回 `''` 则**去掉**查询串。
+
+> 不配置 `rewriteQueryString` 时，保持原 querystring 不变。
+
+示例：
+
+```javascript
+ViteOSSPluginUpload({
+  cdnHost: 'https://cdn.xxx.com',
+  // ...其它配置
+  // 统一把所有资源引用的查询串替换为构建版本号
+  rewriteQueryString: (_path, _query) => `?v=${process.env.BUILD_VERSION}`,
+})
+```
+
+转换效果：
+
+| 原引用 | `rewriteQueryString` 返回值 | 替换后 |
+| --- | --- | --- |
+| `/assets/logo.png?v=1` | `?v=2` | `https://cdn.xxx.com/static/assets/logo.png?v=2` |
+| `/assets/logo.png` | `?cache=bust` | `https://cdn.xxx.com/static/assets/logo.png?cache=bust` |
+| `/assets/logo.png?v=1` | `''` | `https://cdn.xxx.com/static/assets/logo.png` |
 
 > ⚠️ **安全提醒**：`accessKeyId` / `accessKeySecret` 非常敏感，请通过环境变量读取，切勿硬编码到提交到仓库的配置文件中。
 
