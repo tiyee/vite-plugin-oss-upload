@@ -35,19 +35,23 @@ AGENTS.md
 
 # Anthropic Claude Code
 CLAUDE.md
+CLAUDE.local.md
 /.claude/
 
 # Google Gemini CLI
 GEMINI.md
 /.gemini/
 
-# Qwen
+# Qwen (通义千问)
 QWEN.md
 /.qwen/
 
 # Crush
 CRUSH.md
 /.crush/
+
+# Trae
+/.trae/
 
 # Aider
 .aider*
@@ -68,6 +72,8 @@ CRUSH.md
 # Sourcegraph
 .sourcegraph/
 
+# JetBrains AI Assistant
+.aiignore
 
 # env (请勿提交真实凭据)
 .env
