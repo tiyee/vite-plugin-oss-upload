@@ -1,11 +1,12 @@
 # vite-plugin-oss-upload
 
-一个可以将打包好的资源文件上传到阿里云 OSS，并把代码中资源引用替换为 CDN 地址的 Vite 插件。
+一个可以将打包好的资源文件上传到阿里云 OSS，并把代码中资源引用替换为 CDN 地址的 Vite 插件。支持自定义参数处理
 
 ## 特性
 
 - 🚀 打包完成后自动上传资源文件到阿里云 OSS
 - 🔁 自动重写构建产物中的资源引用为 CDN 地址
+- ✏️ 支持通过 `rewriteQueryString` 自定义（新增 / 改写 / 去除）资源引用的 querystring
 - ⚡ 并发上传（可配置），支持大文件批量场景
 - 🧪 支持 `test` 模式预演，不真正上传
 - 🗑️ 可选删除本地原文件与空目录
@@ -127,6 +128,9 @@ export default defineConfig({
         bucket: process.env.OSS_BUCKET,
         overwrite: true,
         quitWpOnError: true,
+        // 改写资源引用的 querystring：入参与返回值均以 `?` 开头
+        // 用于统一打版本号 / 缓存破坏标识，返回 `''` 可去掉查询串
+        rewriteQueryString: (_path, _query) => `?v=${process.env.BUILD_VERSION ?? '1'}`,
       }),
   ].filter(Boolean),
 })
